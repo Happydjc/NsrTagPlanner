@@ -1,6 +1,7 @@
 ﻿using ExcelDataReader;
 using Newtonsoft.Json;
 using NsrModels;
+using NsrTagPlanner.Exclusion;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -9,24 +10,24 @@ using System.Text;
 
 namespace NsrTagPlanner
 {
-    internal static class NsrDataAdapter
+    public record NsrDataAdapter(string DataPath):INsrDataAdapter<NsrData>
     {
-        internal static NsrData NsrData(this string dataPath)
+        static readonly JsonSerializerSettings serializerSettings = new()
         {
-            JsonSerializerSettings serializerSettings = new()
-            {
-                TypeNameHandling = TypeNameHandling.Auto,
-                TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple
-            };
-            FileInfo file = new(Path.Combine(new FileInfo(dataPath).DirectoryName, $"{nameof(NsrTag)}List.json"));
+            TypeNameHandling = TypeNameHandling.Auto,
+            TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple
+        };
+        public NsrData GetData()
+        {
+            FileInfo file = new(Path.Combine(new FileInfo(DataPath).DirectoryName, $"{nameof(NsrTag)}List.json"));
             string excelPath = Properties.Resources.ExcelPath;
-            if (!NeedUpdate(file, excelPath))
+            if (!IsExcelFileChanged(file, excelPath))
             {
                 using StreamReader reader = new(file.FullName);
                 return JsonConvert.DeserializeObject<NsrData>(reader.ReadToEnd(),serializerSettings);
             }
             else
-            {
+            {               
                 NsrData nsrData = ReadExcel(excelPath);
                 using StreamWriter writer = new(file.FullName);
                 writer.Write(JsonConvert.SerializeObject(nsrData,serializerSettings));
@@ -34,7 +35,44 @@ namespace NsrTagPlanner
             }
         }
 
-        static bool NeedUpdate(FileInfo file, string excelPath) => !file.Exists || file.Length == 0 || (new FileInfo(excelPath).LastWriteTime > file.LastWriteTime);
+        public void SevePlan(PlannerWindow plannerWindow)
+        {
+            FileInfo file = GetPlanFile(plannerWindow.Name);
+            plannerWindow.RefreshPlan();
+            using StreamWriter writer = new(file.FullName);
+            writer.Write(JsonConvert.SerializeObject(plannerWindow.PlanSettings, serializerSettings));
+        }
+
+        public void LoadPlan(PlannerWindow plannerWindow)
+        {
+            FileInfo file = GetPlanFile(plannerWindow.Name);
+            if (file.Exists)
+            {
+                using StreamReader reader = new(file.FullName);
+                List<NsrTagSetting> nsrPlanTagSettings = JsonConvert.DeserializeObject<List<NsrTagSetting>>(reader.ReadToEnd(), serializerSettings);
+                plannerWindow.SetPlanSettings(nsrPlanTagSettings);
+            }
+        }
+        FileInfo GetPlanFile(string formName) => new(Path.Combine(new FileInfo(DataPath).DirectoryName, $"{formName}_{nameof(NsrTagSetting)}List.json"));
+
+        public static string ShowNsrTagOperateList(NsrTagChoices tags)
+        {
+            StringBuilder sb = new();
+            tags.ForEach(tag => sb.Append($"{tag.Name}({tag.SubStribe})+"));
+            if (tags.Count > 0) sb.Remove(sb.Length - 1, 1);
+            if (tags.Count > 1) sb.Append($"={tags.BaseSubstribe}");
+            if (tags.Multiple > 1)
+            {
+                sb.AppendLine();
+                sb.Append(tags.BaseSubstribe);
+                foreach (var item in tags.TagGroupCountDict)
+                    sb.Append(NsrTagChoices.GetCountItemText(item));
+                sb.Append($"={tags.Substribe}");
+            }
+            return sb.ToString();
+        }
+
+        static bool IsExcelFileChanged(FileInfo file, string excelPath) => !file.Exists || file.Length == 0 || (new FileInfo(excelPath).LastWriteTime > file.LastWriteTime);
 
         static NsrData ReadExcel(string excelPath)
         {
@@ -48,7 +86,7 @@ namespace NsrTagPlanner
             components.AddRange(ReadActiveComponents(data.Tables["能动组件"]));
             return new NsrData(tags, components);
 
-      }
+        }
 
         static List<NsrStructureComponent> ReadStructureComponents(DataTable dataTable)
         {
@@ -164,7 +202,7 @@ namespace NsrTagPlanner
                         RepeatTime = repeatTime,
                         IsSensitive = isSensitive,
                     };
-                    tag.Exclusions.Add(new NsrTagRepeatExclusion(tag.Name, tag.RepeatTime));
+                    tag.Exclusions.Add(new NsrRepeatExclusion(tag.Name, tag.RepeatTime));
                     tag.Exclusions.AddRange(descExclusions.Where(ex => ex.Match(row.ItemArray[7].ToString())));
                     string exclusionNames = row.ItemArray[24].ToString();
                     if (!string.IsNullOrEmpty(exclusionNames))
@@ -178,24 +216,7 @@ namespace NsrTagPlanner
             return tags;
         }
 
-        internal static string ShowNsrTagOperateList(this NsrTagOperateList tags)
-        {
-            StringBuilder sb = new();
-            tags.ForEach(tag => sb.Append($"{tag.Name}({tag.SubStribe})+"));
-            if (tags.Count > 0) sb.Remove(sb.Length - 1, 1);
-            if (tags.Count > 1) sb.Append($"={tags.BaseSubstribe}");
-            if (tags.Multiple > 1)
-            {
-                sb.AppendLine();
-                sb.Append(tags.BaseSubstribe);
-                foreach (var item in tags.TagGroupCountDict)
-                    sb.Append(NsrTagOperateList.GetCountItemText(item));
-                sb.Append($"={tags.Substribe}");
-            }
-            return sb.ToString();
-        }
-
-        static readonly List<NsrTagDescMutualExclusion> descExclusions = new()
+        static readonly List<NsrDescMutualExclusion> descExclusions = new()
         {
             new("完成“", "”"),
             new("完成来自", "的一项挑战"),

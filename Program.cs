@@ -19,5 +19,6 @@ namespace NsrTagPlanner
             Application.Run(new MDIMain());
         }
 
+        public static NsrDataAdapter NsrDataAdapter => new(Application.ExecutablePath);
     }
 }

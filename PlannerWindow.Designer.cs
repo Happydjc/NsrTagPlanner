@@ -293,6 +293,7 @@ namespace NsrTagPlanner
             Name = "PlannerWindow";
             ShowIcon = false;
             Text = "Form1";
+            FormClosing += PlannerWindow_FormClosing;
             splitContainer1.Panel1.ResumeLayout(false);
             splitContainer1.Panel1.PerformLayout();
             splitContainer1.Panel2.ResumeLayout(false);

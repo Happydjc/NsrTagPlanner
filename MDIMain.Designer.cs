@@ -155,7 +155,7 @@ namespace NsrTagPlanner
             // optionsToolStripMenuItem
             // 
             optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
-            optionsToolStripMenuItem.Size = new System.Drawing.Size(180, 24);
+            optionsToolStripMenuItem.Size = new System.Drawing.Size(132, 24);
             optionsToolStripMenuItem.Text = "选项(&O)";
             optionsToolStripMenuItem.Click += OptionsToolStripMenuItem_Click;
             // 

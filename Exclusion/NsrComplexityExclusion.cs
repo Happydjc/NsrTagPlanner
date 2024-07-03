@@ -1,17 +1,17 @@
 ﻿using NsrModels;
 using System;
 
-namespace NsrTagPlanner
+namespace NsrTagPlanner.Exclusion
 {
 
     /// <summary>
     /// 标签复杂度限制
     /// </summary>
-    internal class NsrTagComplexityExclusion : INsrTagExclusion
+    internal class NsrComplexityExclusion : INsrExclusion
     {
         public string ExclusionMassage(NsrTag tag) => throw new NotImplementedException();
 
-        public bool Match(NsrTagList tags) => tags != null && tags.Complexity > tags.ComplexityCap;
+        public bool Match(NsrTags tags) => tags != null && tags.Complexity > tags.ComplexityCap;
     }
 }
 

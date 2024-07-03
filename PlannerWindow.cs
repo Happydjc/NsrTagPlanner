@@ -1,4 +1,5 @@
 ﻿using NsrModels;
+using NsrTagPlanner.Exclusion;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -38,20 +39,15 @@ namespace NsrTagPlanner
 
         public void DoEvents() => Application.DoEvents();
 
+        public List<NsrTagSetting> PlanSettings { get; private set; } = new();
+
         /// <summary>
         /// 重置所有标签
         /// </summary>
         /// <param name="tags"></param>
-        public void UpdateAllTags(List<NsrTag> tags)
+        public void RefreshTags(List<NsrTag> tags)
         {
-            List<NsrPlanTagSetting> tagSettings = new();
-            foreach (ListViewItem tagItem in tagList.Items)
-            {
-                int cycleTime = -1;
-                if (tagItem.SubItems[2].Tag != null)
-                    _ = int.TryParse(tagItem.SubItems[2].Tag.ToString(), out cycleTime);
-                tagSettings.Add(new(tagItem.Text, tagItem.Checked, cycleTime));
-            }
+            RefreshPlan();
 
             for (int i = 0; i < 5; i++)
                 FillSelection(selections[i], tags.ToArray());
@@ -66,12 +62,6 @@ namespace NsrTagPlanner
                 if (!AllTags.Contains(tag) && tags.Contains(tag))
                 {
                     ListViewItem tagItem = CreateItem(tag);
-                    if (tagSettings.Any(s => s.TagName == tag.Name))
-                    {
-                        NsrPlanTagSetting tagSetting = tagSettings.Find(s => s.TagName == tag.Name);
-                        tagItem.Checked = tagSetting.Checked;
-                        if (tagSetting.UsingCycle >= 0) UpdateTagUsageTime(tagItem, tagSetting.UsingCycle);
-                    }
                     //should add
                     tagList.Items.Add(tagItem);
                 }
@@ -79,11 +69,42 @@ namespace NsrTagPlanner
 
             AllTags.Clear();
             AllTags.AddRange(tags);
+            SetPlanSettings();
             foreach (var menuItem in modelMenuItems)
                 tagMenu.Items.Remove(menuItem);
             modelMenuItems.Clear();
             foreach (var tag in AllTags)
                 FillMenuByTag(tag);
+        }
+
+        public void SetPlanSettings(List<NsrTagSetting> nsrPlanTagSettings)
+        {
+            PlanSettings = nsrPlanTagSettings;
+            SetPlanSettings();
+        }
+        void SetPlanSettings()
+        {
+            foreach (ListViewItem tagItem in tagList.Items)
+            {
+                if (PlanSettings.Any(s => s.TagName == tagItem.Name))
+                {
+                    NsrTagSetting tagSetting = PlanSettings.Find(s => s.TagName == tagItem.Name);
+                    tagItem.Checked = tagSetting.Checked;
+                    if (tagSetting.UsingCycle >= 0) UpdateTagUsageTime(tagItem, tagSetting.UsingCycle);
+                }
+            }
+        }
+
+        public void RefreshPlan()
+        {
+            PlanSettings.Clear();
+            foreach (ListViewItem tagItem in tagList.Items)
+            {
+                int cycleTime = -1;
+                if (tagItem.SubItems[2].Tag != null)
+                    _ = int.TryParse(tagItem.SubItems[2].Tag.ToString(), out cycleTime);
+                PlanSettings.Add(new(tagItem.Text, tagItem.Checked, cycleTime));
+            }
         }
         #endregion
 
@@ -155,9 +176,9 @@ namespace NsrTagPlanner
         }
         private void FillMenuByTag(NsrTag tag)
         {
-            if (tag.Exclusions.Any(e => e is NsrTagDescMutualExclusion) && !modelMenuItems.Any(i => tag.Exclusions.Contains((NsrTagDescMutualExclusion)i.Tag)))
+            if (tag.Exclusions.Any(e => e is NsrDescMutualExclusion) && !modelMenuItems.Any(i => tag.Exclusions.Contains((NsrDescMutualExclusion)i.Tag)))
             {
-                NsrTagDescMutualExclusion dm = (NsrTagDescMutualExclusion)tag.Exclusions.First(e => e is NsrTagDescMutualExclusion);
+                NsrDescMutualExclusion dm = (NsrDescMutualExclusion)tag.Exclusions.First(e => e is NsrDescMutualExclusion);
                 ToolStripMenuItem menuItem = new(dm.ToString(), null, ModelToolStripMenuItem_Click)
                 {
                     Checked = true,
@@ -240,7 +261,7 @@ namespace NsrTagPlanner
             for (int i = 0; i < tagList.Items.Count; i++)
             {
                 if (tagList.Items[i].Tag is NsrTag tag)
-                    if (tag.Exclusions.Contains((NsrTagDescMutualExclusion)menu.Tag))
+                    if (tag.Exclusions.Contains((NsrDescMutualExclusion)menu.Tag))
                         tagList.Items[i].Checked = menu.Checked && (!tag.IsSensitive || allowSensitive.Checked);
             }
         }
@@ -337,7 +358,7 @@ namespace NsrTagPlanner
             foreach (ComboBox selection in selections)
                 if (AllTags.Any(tag => tag.Name == selection.Text))
                     tags.Add(AllTags.First(tag => tag.Name == selection.Text));
-            value.Text = new NsrTagOperateList(tags).ShowNsrTagOperateList();
+            value.Text = NsrDataAdapter.ShowNsrTagOperateList(new NsrTagChoices(tags));
         }
 
         private void Selection_TooltipRefreshed(object sender, EventArgs e)
@@ -357,9 +378,9 @@ namespace NsrTagPlanner
 
         private void Operation_Click(object sender, EventArgs e) => Calc(((Button)sender).Text, Operation);
 
-        private void Operation(NsrTagOperateList conditions, IList<NsrTag> tags)
+        private void Operation(NsrTagChoices conditions, IList<NsrTag> tags)
         {
-            NsrTagOperateList result = NsrTagOperateList.Empty;
+            NsrTagChoices result = NsrTagChoices.Empty;
             for (int i = 2; i >= 0; i--)
             {
                 result = new NsrOperateAlgorithm(tags, this, (int)Math.Pow(10, i)).Operate(conditions);
@@ -390,10 +411,10 @@ namespace NsrTagPlanner
                 ListViewItem item = tagList.Items[i];
                 if (item.Tag is NsrTag tag)
                 {
-                    if (tag.Exclusions.Any(ex => ex is NsrTagDescMutualExclusion))
+                    if (tag.Exclusions.Any(ex => ex is NsrDescMutualExclusion))
                     {
                         foreach (var menu in modelMenuItems)
-                            if (tag.Exclusions.Contains((NsrTagDescMutualExclusion)menu.Tag))
+                            if (tag.Exclusions.Contains((NsrDescMutualExclusion)menu.Tag))
                                 item.Checked = menu.Checked && (!tag.IsSensitive || allowSensitive.Checked);
                     }
                     else
@@ -405,11 +426,11 @@ namespace NsrTagPlanner
 
         #endregion
 
-        public bool Validate(NsrTagList tags, NsrTag tag)
+        public bool Validate(NsrTags tags, NsrTag tag)
         {
             if (!NsrTag.IsNullOrEmpty(tag))
             {
-                List<INsrTagExclusion> exclusions = new(tag.Exclusions.Where(e => e.Match(tags)));
+                List<INsrExclusion> exclusions = new(tag.Exclusions.Where(e => e.Match(tags)));
                 //检查限制
                 if (exclusions.Count > 0)
                 {
@@ -424,9 +445,9 @@ namespace NsrTagPlanner
             return true;
         }
 
-        bool Validate(NsrTagList tags)
+        bool Validate(NsrTags tags)
         {
-            NsrTagList temp = new();
+            NsrTags temp = new();
             foreach (NsrTag tag in tags)
             {
                 if (Validate(temp, tag)) temp.Add(tag);
@@ -435,9 +456,9 @@ namespace NsrTagPlanner
             return true;
         }
 
-        private void Calc(string name, Action<NsrTagOperateList, IList<NsrTag>> action)
+        private void Calc(string name, Action<NsrTagChoices, IList<NsrTag>> action)
         {
-            NsrTagOperateList conditions = new(selections
+            NsrTagChoices conditions = new(selections
                 .Where(selection => (bool)((Button)selection.Tag).Tag)
                 .Select(selection => string.IsNullOrEmpty(selection.Text) ? new NsrTag() : AllTags.First(tag => tag.Name == selection.Text)));
             List<NsrTag> allTags = new();
@@ -499,6 +520,11 @@ namespace NsrTagPlanner
             tagList.CheckBoxes = !isLock;
             if (!isLock)
                 Text = FormName;
+        }
+
+        private void PlannerWindow_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            Program.NsrDataAdapter.SevePlan(this);
         }
     }
 }

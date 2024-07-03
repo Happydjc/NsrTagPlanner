@@ -19,7 +19,12 @@ namespace NsrTagPlanner
 
         private void ShowNewForm(object sender, EventArgs e) => ShowNewForm();
 
-        private void ShowNewForm() => new PlannerWindow($"规划{++childFormNumber}", nsrData) { MdiParent = this, }.Show();
+        private void ShowNewForm()
+        {
+            PlannerWindow newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
+            Program.NsrDataAdapter.LoadPlan(newWindow);
+            newWindow.Show();
+        }
 
         private void ExitToolStripMenuItem_Click(object sender, EventArgs e) => Close();
 
@@ -45,14 +50,14 @@ namespace NsrTagPlanner
 
         private void UpdateTags()
         {
-            nsrData = Application.ExecutablePath.NsrData();
+            nsrData = Program.NsrDataAdapter.GetData();
             toolStripStatusLabel.Text
                 = nsrData?.NsrTags == null ? "" : $" {nsrData.NsrTags.Count}条完整Tag数据已读取."
                 + nsrData?.NsrComponents == null ? "" : $"{nsrData.NsrComponents.Count}条完整部件数据已读取.";
             foreach (var childForm in MdiChildren)
             {
                 if (childForm is INsrOperateUI uI)
-                    uI.UpdateAllTags(nsrData.NsrTags);
+                    uI.RefreshTags(nsrData.NsrTags);
             }
         }
 
