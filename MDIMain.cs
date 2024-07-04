@@ -21,7 +21,7 @@ namespace NsrTagPlanner
 
         private void ShowNewForm()
         {
-            PlannerWindow newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
+            NsrPlan newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
             Program.NsrDataAdapter.LoadPlan(newWindow);
             newWindow.Show();
         }

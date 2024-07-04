@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace NsrTagPlanner
 {
-    public partial class PlannerWindow : Form, INsrOperateUI
+    public partial class NsrPlan : Form, INsrOperateUI
     {
         #region INsrOperationUI接口
         public bool Cancel { get; private set; }
@@ -117,7 +117,7 @@ namespace NsrTagPlanner
         private readonly List<ToolStripMenuItem> modelMenuItems = new();
         public List<NsrComponent> AllComponents { get; private init; }
 
-        public PlannerWindow(string name, NsrData nsrData)
+        public NsrPlan(string name, NsrData nsrData)
         {
             (FormName, AllTags, AllComponents) = (name, nsrData.NsrTags, nsrData.NsrComponents);
             InitializeComponent();

@@ -1,6 +1,7 @@
 ﻿using ExcelDataReader;
 using Newtonsoft.Json;
 using NsrModels;
+using NsrModels.Component;
 using NsrTagPlanner.Exclusion;
 using System.Collections.Generic;
 using System.Data;
@@ -35,22 +36,22 @@ namespace NsrTagPlanner
             }
         }
 
-        public void SevePlan(PlannerWindow plannerWindow)
+        public void SevePlan(NsrPlan plan)
         {
-            FileInfo file = GetPlanFile(plannerWindow.Name);
-            plannerWindow.RefreshPlan();
+            FileInfo file = GetPlanFile(plan.Name);
+            plan.RefreshPlan();
             using StreamWriter writer = new(file.FullName);
-            writer.Write(JsonConvert.SerializeObject(plannerWindow.PlanSettings, serializerSettings));
+            writer.Write(JsonConvert.SerializeObject(plan.PlanSettings, serializerSettings));
         }
 
-        public void LoadPlan(PlannerWindow plannerWindow)
+        public void LoadPlan(NsrPlan plan)
         {
-            FileInfo file = GetPlanFile(plannerWindow.Name);
+            FileInfo file = GetPlanFile(plan.Name);
             if (file.Exists)
             {
                 using StreamReader reader = new(file.FullName);
                 List<NsrTagSetting> nsrPlanTagSettings = JsonConvert.DeserializeObject<List<NsrTagSetting>>(reader.ReadToEnd(), serializerSettings);
-                plannerWindow.SetPlanSettings(nsrPlanTagSettings);
+                plan.SetPlanSettings(nsrPlanTagSettings);
             }
         }
         FileInfo GetPlanFile(string formName) => new(Path.Combine(new FileInfo(DataPath).DirectoryName, $"{formName}_{nameof(NsrTagSetting)}List.json"));
@@ -72,7 +73,7 @@ namespace NsrTagPlanner
             return sb.ToString();
         }
 
-        static bool IsExcelFileChanged(FileInfo file, string excelPath) => !file.Exists || file.Length == 0 || (new FileInfo(excelPath).LastWriteTime > file.LastWriteTime);
+        static bool IsExcelFileChanged(FileInfo file, string path) => !file.Exists || file.Length == 0 || (new FileInfo(path).LastWriteTime > file.LastWriteTime);
 
         static NsrData ReadExcel(string excelPath)
         {
