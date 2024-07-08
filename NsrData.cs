@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
-using NsrModels;
 
-namespace NsrTagPlanner
+namespace Nsr.Planner
 {
-    public record NsrData(List<NsrTag> NsrTags, List<NsrComponent> NsrComponents);
+    internal record NsrData(NsrTags NsrTags, List<NsrComponent> NsrComponents);
 }

@@ -1,5 +1,5 @@
 ﻿
-namespace NsrTagPlanner
+namespace Nsr.Planner
 {
     partial class MDIMain
     {
@@ -306,6 +306,7 @@ namespace NsrTagPlanner
             Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
             Name = "MDIMain";
             Text = "MDIMain";
+            FormClosing += MDIMain_FormClosing;
             menuStrip.ResumeLayout(false);
             menuStrip.PerformLayout();
             toolStrip.ResumeLayout(false);

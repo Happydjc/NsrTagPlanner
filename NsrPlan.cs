@@ -1,5 +1,5 @@
-﻿using NsrModels;
-using NsrTagPlanner.Exclusion;
+﻿using Nsr;
+using Nsr.Exclusion;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -7,13 +7,13 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace NsrTagPlanner
+namespace Nsr.Planner
 {
-    public partial class NsrPlan : Form, INsrOperateUI
+    public partial class NsrTagStatus : Form, INsrOperateUI
     {
         #region INsrOperationUI接口
         public bool Cancel { get; private set; }
-        public List<NsrTag> AllTags { get; private init; }
+        public NsrTags AllTags { get; private set; }
         public void Clear()
         {
             Text = FormName;
@@ -39,13 +39,13 @@ namespace NsrTagPlanner
 
         public void DoEvents() => Application.DoEvents();
 
-        public List<NsrTagSetting> PlanSettings { get; private set; } = new();
+        public List<NsrTagSetting> TagSettings { get; private set; } = new();
 
         /// <summary>
         /// 重置所有标签
         /// </summary>
         /// <param name="tags"></param>
-        public void RefreshTags(List<NsrTag> tags)
+        public void RefreshTags(NsrTags tags)
         {
             RefreshPlan();
 
@@ -67,8 +67,7 @@ namespace NsrTagPlanner
                 }
             }
 
-            AllTags.Clear();
-            AllTags.AddRange(tags);
+            AllTags=tags;
             SetPlanSettings();
             foreach (var menuItem in modelMenuItems)
                 tagMenu.Items.Remove(menuItem);
@@ -79,16 +78,16 @@ namespace NsrTagPlanner
 
         public void SetPlanSettings(List<NsrTagSetting> nsrPlanTagSettings)
         {
-            PlanSettings = nsrPlanTagSettings;
+            TagSettings = nsrPlanTagSettings;
             SetPlanSettings();
         }
         void SetPlanSettings()
         {
             foreach (ListViewItem tagItem in tagList.Items)
             {
-                if (PlanSettings.Any(s => s.TagName == tagItem.Name))
+                if (TagSettings!=null && TagSettings.Any(s => s.TagName == tagItem.Name))
                 {
-                    NsrTagSetting tagSetting = PlanSettings.Find(s => s.TagName == tagItem.Name);
+                    NsrTagSetting tagSetting = TagSettings.Find(s => s.TagName == tagItem.Name);
                     tagItem.Checked = tagSetting.Checked;
                     if (tagSetting.UsingCycle >= 0) UpdateTagUsageTime(tagItem, tagSetting.UsingCycle);
                 }
@@ -97,13 +96,13 @@ namespace NsrTagPlanner
 
         public void RefreshPlan()
         {
-            PlanSettings.Clear();
+            TagSettings.Clear();
             foreach (ListViewItem tagItem in tagList.Items)
             {
                 int cycleTime = -1;
                 if (tagItem.SubItems[2].Tag != null)
                     _ = int.TryParse(tagItem.SubItems[2].Tag.ToString(), out cycleTime);
-                PlanSettings.Add(new(tagItem.Text, tagItem.Checked, cycleTime));
+                TagSettings.Add(new(tagItem.Text, tagItem.Checked, cycleTime));
             }
         }
         #endregion
@@ -117,7 +116,7 @@ namespace NsrTagPlanner
         private readonly List<ToolStripMenuItem> modelMenuItems = new();
         public List<NsrComponent> AllComponents { get; private init; }
 
-        public NsrPlan(string name, NsrData nsrData)
+        internal NsrTagStatus(string name, NsrData nsrData)
         {
             (FormName, AllTags, AllComponents) = (name, nsrData.NsrTags, nsrData.NsrComponents);
             InitializeComponent();
@@ -154,25 +153,15 @@ namespace NsrTagPlanner
             ListViewItem item = new()
             {
                 Name = tag.Name,
-                Text = tag.Name,
+                Text = tag.Text,
                 Checked = true,
                 Tag = tag,
-                ForeColor = tag.IsSensitive ? Color.White : RarityColor(tag),
-                BackColor = !tag.IsSensitive ? Color.White : RarityColor(tag),
+                ForeColor = tag.IsSensitive ? Color.White : tag.Rarity.RarityColor(),
+                BackColor = !tag.IsSensitive ? Color.White : tag.Rarity.RarityColor(),
             };
             item.SubItems.Add(tag.Description);
             item.SubItems.Add("");
             return item;
-
-            static Color RarityColor(NsrTag tag) => tag.Rarity switch
-            {
-                NsrTagRarity.普通 => Color.Black,
-                NsrTagRarity.罕见 => Color.Blue,
-                NsrTagRarity.稀有 => Color.Purple,
-                NsrTagRarity.史诗 => Color.Orange,
-                NsrTagRarity.疯传 => Color.Red,
-                _ => Color.White,
-            };
         }
         private void FillMenuByTag(NsrTag tag)
         {
@@ -358,7 +347,7 @@ namespace NsrTagPlanner
             foreach (ComboBox selection in selections)
                 if (AllTags.Any(tag => tag.Name == selection.Text))
                     tags.Add(AllTags.First(tag => tag.Name == selection.Text));
-            value.Text = NsrDataAdapter.ShowNsrTagOperateList(new NsrTagChoices(tags));
+            value.Text = NsrDataAdapter.ShowNsrTagOperateList(new NsrSelectedTags(tags));
         }
 
         private void Selection_TooltipRefreshed(object sender, EventArgs e)
@@ -378,12 +367,12 @@ namespace NsrTagPlanner
 
         private void Operation_Click(object sender, EventArgs e) => Calc(((Button)sender).Text, Operation);
 
-        private void Operation(NsrTagChoices conditions, IList<NsrTag> tags)
+        private void Operation(NsrSelectedTags selectedTags, IList<NsrTag> tags)
         {
-            NsrTagChoices result = NsrTagChoices.Empty;
+            NsrSelectedTags result = NsrSelectedTags.Empty;
             for (int i = 2; i >= 0; i--)
             {
-                result = new NsrOperateAlgorithm(tags, this, (int)Math.Pow(10, i)).Operate(conditions);
+                result = new NsrOperateAlgorithm(tags, this, (int)Math.Pow(10, i)).Operate(selectedTags);
                 if (result.Count > 0) break;
             }
             if (result.Count == 0)
@@ -426,39 +415,25 @@ namespace NsrTagPlanner
 
         #endregion
 
-        public bool Validate(NsrTags tags, NsrTag tag)
-        {
-            if (!NsrTag.IsNullOrEmpty(tag))
-            {
-                List<INsrExclusion> exclusions = new(tag.Exclusions.Where(e => e.Match(tags)));
-                //检查限制
-                if (exclusions.Count > 0)
-                {
-                    exclusions.ForEach(e => WriteLine($"{e.ExclusionMassage(tag)}"));
-                    return false;
-                }
-                else
-                { WriteLine($"标签[{tag.Name}]({tag.Description})可用."); }
-
-            }
-            //检查完成
-            return true;
-        }
-
         bool Validate(NsrTags tags)
         {
             NsrTags temp = new();
             foreach (NsrTag tag in tags)
             {
-                if (Validate(temp, tag)) temp.Add(tag);
-                else return false;
+                NsrValidateException validateMessage = temp.Validate(tag);
+                if (!validateMessage.IsValid)
+                {
+                    validateMessage.Messages.ForEach(message => { WriteLine(message); });
+                    return false;
+                }
+                else temp.Add(tag);
             }
             return true;
         }
 
-        private void Calc(string name, Action<NsrTagChoices, IList<NsrTag>> action)
+        private void Calc(string name, Action<NsrSelectedTags, IList<NsrTag>> action)
         {
-            NsrTagChoices conditions = new(selections
+            NsrSelectedTags conditions = new(selections
                 .Where(selection => (bool)((Button)selection.Tag).Tag)
                 .Select(selection => string.IsNullOrEmpty(selection.Text) ? new NsrTag() : AllTags.First(tag => tag.Name == selection.Text)));
             List<NsrTag> allTags = new();

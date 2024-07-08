@@ -4,7 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
-    <StartupObject>NsrTagPlanner.Program</StartupObject>
+    <StartupObject>Nsr.Planner.Program</StartupObject>
     <ApplicationIcon>plan.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\NSRModels\NsrModels.csproj" />
+    <ProjectReference Include="..\NSRModels\Nsr.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace NsrTagPlanner.Properties {
+namespace Nsr.Planner.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace NsrTagPlanner.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("NsrTagPlanner.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Nsr.Planner.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -66,6 +66,24 @@ namespace NsrTagPlanner.Properties {
         internal static string ExcelPath {
             get {
                 return ResourceManager.GetString("ExcelPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 部件 的本地化字符串。
+        /// </summary>
+        internal static string NsrComponent {
+            get {
+                return ResourceManager.GetString("NsrComponent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 标签 的本地化字符串。
+        /// </summary>
+        internal static string NsrTag {
+            get {
+                return ResourceManager.GetString("NsrTag", resourceCulture);
             }
         }
         

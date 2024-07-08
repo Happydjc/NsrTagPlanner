@@ -2,7 +2,7 @@ using System;
 using System.Text;
 using System.Windows.Forms;
 
-namespace NsrTagPlanner
+namespace Nsr.Planner
 {
     static class Program
     {
@@ -19,6 +19,6 @@ namespace NsrTagPlanner
             Application.Run(new MDIMain());
         }
 
-        public static NsrDataAdapter NsrDataAdapter => new(Application.ExecutablePath);
+        internal static NsrDataAdapter NsrDataAdapter => new(Application.ExecutablePath, Properties.Resources.ExcelPath);
     }
 }

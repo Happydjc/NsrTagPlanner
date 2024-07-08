@@ -1,8 +1,9 @@
-﻿using NsrModels;
+﻿using Nsr;
 using System;
+using System.Linq;
 using System.Windows.Forms;
 
-namespace NsrTagPlanner
+namespace Nsr.Planner
 {
     public partial class MDIMain : Form
     {
@@ -21,7 +22,7 @@ namespace NsrTagPlanner
 
         private void ShowNewForm()
         {
-            NsrPlan newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
+            NsrTagStatus newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
             Program.NsrDataAdapter.LoadPlan(newWindow);
             newWindow.Show();
         }
@@ -51,9 +52,10 @@ namespace NsrTagPlanner
         private void UpdateTags()
         {
             nsrData = Program.NsrDataAdapter.GetData();
-            toolStripStatusLabel.Text
-                = nsrData?.NsrTags == null ? "" : $" {nsrData.NsrTags.Count}条完整Tag数据已读取."
-                + nsrData?.NsrComponents == null ? "" : $"{nsrData.NsrComponents.Count}条完整部件数据已读取.";
+            toolStripStatusLabel.Text = nsrData?.NsrTags == null ? "" : $" {nsrData.NsrTags.Count} {Properties.Resources.NsrTag}. ";
+
+            toolStripStatusLabel.Text += nsrData?.NsrComponents == null ? "" : $"{nsrData.NsrComponents.Count} {Properties.Resources.NsrComponent}. ";
+
             foreach (var childForm in MdiChildren)
             {
                 if (childForm is INsrOperateUI uI)
@@ -69,6 +71,11 @@ namespace NsrTagPlanner
         private void 数据重载RToolStripMenuItem_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void MDIMain_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            Application.Exit();
         }
     }
 }

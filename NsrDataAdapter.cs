@@ -1,65 +1,85 @@
 ﻿using ExcelDataReader;
 using Newtonsoft.Json;
-using NsrModels;
-using NsrModels.Component;
-using NsrTagPlanner.Exclusion;
+using Nsr.Component;
+using Nsr.Exclusion;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace NsrTagPlanner
+namespace Nsr.Planner
 {
-    public record NsrDataAdapter(string DataPath):INsrDataAdapter<NsrData>
+    /// <summary>
+    /// NSR数据适配器
+    /// </summary>
+    /// <param name="JsonPath">Json数据目录</param>
+    /// <remarks>
+    /// 将NSR数据的存储从Excel文件迁移到JSON文件，以便更方便地在程序中进行处理和管理。
+    /// </remarks>
+    internal record NsrDataAdapter(string JsonPath, string ExcelPath)
     {
-        static readonly JsonSerializerSettings serializerSettings = new()
+        /// <summary>
+        /// 获取NSR数据
+        /// </summary>
+        /// <returns>
+        /// NSR数据
+        /// </returns>
+        /// <remarks>
+        /// 检查一个JSON文件是否存在且未被修改（通过IsExcelFileChanged方法），
+        ///     如果文件未被修改，直接从JSON文件中反序列化数据并返回。
+        ///     如果文件被修改或不存在，从Excel文件中读取数据（通过ReadExcel方法），然后将这些数据序列化到JSON文件中，并返回这些数据。
+        /// </remarks>
+        internal NsrData GetData()
         {
-            TypeNameHandling = TypeNameHandling.Auto,
-            TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple
-        };
-        public NsrData GetData()
-        {
-            FileInfo file = new(Path.Combine(new FileInfo(DataPath).DirectoryName, $"{nameof(NsrTag)}List.json"));
-            string excelPath = Properties.Resources.ExcelPath;
-            if (!IsExcelFileChanged(file, excelPath))
+            FileInfo file = new(Path.Combine(new FileInfo(JsonPath).DirectoryName, $"{nameof(NsrTag)}List.json"));
+            if (!IsExcelFileChanged(file))
             {
                 using StreamReader reader = new(file.FullName);
-                return JsonConvert.DeserializeObject<NsrData>(reader.ReadToEnd(),serializerSettings);
+                return JsonConvert.DeserializeObject<NsrData>(reader.ReadToEnd(), serializerSettings);
             }
             else
-            {               
-                NsrData nsrData = ReadExcel(excelPath);
+            {
+                NsrData nsrData = ReadExcel();
                 using StreamWriter writer = new(file.FullName);
-                writer.Write(JsonConvert.SerializeObject(nsrData,serializerSettings));
+                writer.Write(JsonConvert.SerializeObject(nsrData, serializerSettings));
                 return nsrData;
             }
         }
 
-        public void SevePlan(NsrPlan plan)
+        /// <summary>
+        /// 保存NSR标签状态
+        /// </summary>
+        /// <param name="tagStatus">NSR标签状态</param>
+        internal void SevePlan(NsrTagStatus tagStatus)
         {
-            FileInfo file = GetPlanFile(plan.Name);
-            plan.RefreshPlan();
+            FileInfo file = GetPlanFile(tagStatus.Name);
+            tagStatus.RefreshPlan();
             using StreamWriter writer = new(file.FullName);
-            writer.Write(JsonConvert.SerializeObject(plan.PlanSettings, serializerSettings));
+            writer.Write(JsonConvert.SerializeObject(tagStatus.TagSettings, serializerSettings));
         }
 
-        public void LoadPlan(NsrPlan plan)
+        /// <summary>
+        /// 读取标签状态
+        /// </summary>
+        /// <param name="tagStatus">NSR标签状态</param>
+        internal void LoadPlan(NsrTagStatus tagStatus)
         {
-            FileInfo file = GetPlanFile(plan.Name);
+            FileInfo file = GetPlanFile(tagStatus.Name);
             if (file.Exists)
             {
                 using StreamReader reader = new(file.FullName);
-                List<NsrTagSetting> nsrPlanTagSettings = JsonConvert.DeserializeObject<List<NsrTagSetting>>(reader.ReadToEnd(), serializerSettings);
-                plan.SetPlanSettings(nsrPlanTagSettings);
+                List<NsrTagSetting> nsrPlanSettings = JsonConvert.DeserializeObject<List<NsrTagSetting>>(reader.ReadToEnd(), serializerSettings);
+                nsrPlanSettings ??= new();
+                tagStatus.SetPlanSettings(nsrPlanSettings);
             }
         }
-        FileInfo GetPlanFile(string formName) => new(Path.Combine(new FileInfo(DataPath).DirectoryName, $"{formName}_{nameof(NsrTagSetting)}List.json"));
 
-        public static string ShowNsrTagOperateList(NsrTagChoices tags)
+
+        internal static string ShowNsrTagOperateList(NsrSelectedTags tags)
         {
             StringBuilder sb = new();
-            tags.ForEach(tag => sb.Append($"{tag.Name}({tag.SubStribe})+"));
+            tags.ForEach(tag => sb.Append($"{tag.Name}({tag.Rarity}{tag.SubStribe})+"));
             if (tags.Count > 0) sb.Remove(sb.Length - 1, 1);
             if (tags.Count > 1) sb.Append($"={tags.BaseSubstribe}");
             if (tags.Multiple > 1)
@@ -67,26 +87,41 @@ namespace NsrTagPlanner
                 sb.AppendLine();
                 sb.Append(tags.BaseSubstribe);
                 foreach (var item in tags.TagGroupCountDict)
-                    sb.Append(NsrTagChoices.GetCountItemText(item));
+                    sb.Append(GetCountItemText(item));
                 sb.Append($"={tags.Substribe}");
             }
             return sb.ToString();
         }
 
-        static bool IsExcelFileChanged(FileInfo file, string path) => !file.Exists || file.Length == 0 || (new FileInfo(path).LastWriteTime > file.LastWriteTime);
-
-        static NsrData ReadExcel(string excelPath)
+        static string GetCountItemText(KeyValuePair<NsrComponentCategory, int> item) => item.Value switch
         {
-            //using FileStream stream = File.Open(excelPath, FileMode.Open, FileAccess.Read);
-            using FileStream stream = new(excelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            5 => $"*极致{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
+            4 => $"*特级{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
+            3 => $"*超级{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
+            2 => $"*{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
+            1 => string.Empty,
+            _ => throw new KeyNotFoundException(),
+        };
+        FileInfo GetPlanFile(string formName) => new(Path.Combine(new FileInfo(JsonPath).DirectoryName, $"{formName}_{nameof(NsrTagSetting)}List.json"));
+
+        static readonly JsonSerializerSettings serializerSettings = new()
+        {
+            TypeNameHandling = TypeNameHandling.Auto,
+            TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple
+        };
+
+        bool IsExcelFileChanged(FileInfo file) => !file.Exists || file.Length == 0 || (new FileInfo(ExcelPath).LastWriteTime > file.LastWriteTime);
+
+        NsrData ReadExcel()
+        {
+            using FileStream stream = new(ExcelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             DataSet data = ExcelReaderFactory.CreateReader(stream).AsDataSet();
-            List<NsrTag> tags = ReadTags(data.Tables["标签"]);
+            NsrTags tags = ReadTags(data.Tables["标签"]);
             List<NsrComponent> components = new();
             components.AddRange(ReadStructureComponents(data.Tables["结构组件"]));
             components.AddRange(ReadPropulsionComponents(data.Tables["推进组件"]));
             components.AddRange(ReadActiveComponents(data.Tables["能动组件"]));
             return new NsrData(tags, components);
-
         }
 
         static List<NsrStructureComponent> ReadStructureComponents(DataTable dataTable)
@@ -177,28 +212,22 @@ namespace NsrTagPlanner
             return components;
         }
 
-        static List<NsrTag> ReadTags(DataTable dataTable)
+        static NsrTags ReadTags(DataTable dataTable)
         {
-            List<NsrTag> tags = new();
+            NsrTags tags = new();
+
             foreach (DataRow row in dataTable.Rows)
                 if (int.TryParse(row.ItemArray[9].ToString(), out _))
                 {
                     _ = int.TryParse(row.ItemArray[1].ToString(), out int rarityId);
                     _ = bool.TryParse(row.ItemArray[3].ToString(), out bool isSensitive);
                     _ = int.TryParse(row.ItemArray[8].ToString(), out int repeatTime);
+                    NsrTagRarity rarity = (NsrTagRarity)rarityId;
                     NsrTag tag = new()
                     {
                         Name = row.ItemArray[0].ToString(),
-                        Rarity = (NsrTagRarity)rarityId,
-                        SubStribe = (NsrTagRarity)rarityId switch
-                        {
-                            NsrTagRarity.普通 => 5,
-                            NsrTagRarity.罕见 => 15,
-                            NsrTagRarity.稀有 => 45,
-                            NsrTagRarity.史诗 => 135,
-                            NsrTagRarity.疯传 => 405,
-                            _ => 0,
-                        },
+                        Rarity = rarity,
+                        SubStribe = rarity.SubStribe(),
                         Description = row.ItemArray[7].ToString(),
                         RepeatTime = repeatTime,
                         IsSensitive = isSensitive,
@@ -209,12 +238,26 @@ namespace NsrTagPlanner
                     if (!string.IsNullOrEmpty(exclusionNames))
                         tag.Exclusions.Add(new NsrTagExclusion(exclusionNames));
                     const int offset = 10;
-                    for (int i = offset; i <= offset+12; i++)
+                    for (int i = offset; i <= offset + 12; i++)
                         if (int.TryParse(row.ItemArray[i].ToString(), out int value) && value == 2)
-                            tag.Groups.Add((NsrTagGroup)(i - offset));
+                            tag.Groups.Add((NsrComponentCategory)(i - offset));
                     tags.Add(tag);
                 }
+            FillTagExclusions(tags);
             return tags;
+        }
+
+        static void FillTagExclusions(NsrTags tags)
+        {
+            foreach (NsrTag tag in tags)
+            {
+                foreach (string tagName in tag.TagExclusion)
+                {
+                    NsrTag nsrTag = tags.First(firstTag => firstTag.Name == tagName);
+                    if (!nsrTag.TagExclusion.Contains(tag.Name))
+                        nsrTag.TagExclusion.Add(tag.Name);
+                }
+            }
         }
 
         static readonly List<NsrDescMutualExclusion> descExclusions = new()
