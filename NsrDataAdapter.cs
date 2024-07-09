@@ -51,7 +51,7 @@ namespace Nsr.Planner
         /// 保存NSR标签状态
         /// </summary>
         /// <param name="tagStatus">NSR标签状态</param>
-        internal void SevePlan(NsrTagStatus tagStatus)
+        internal void SevePlan(NsrPlanProto tagStatus)
         {
             FileInfo file = GetPlanFile(tagStatus.Name);
             tagStatus.RefreshPlan();
@@ -63,7 +63,7 @@ namespace Nsr.Planner
         /// 读取标签状态
         /// </summary>
         /// <param name="tagStatus">NSR标签状态</param>
-        internal void LoadPlan(NsrTagStatus tagStatus)
+        internal void LoadPlan(NsrPlanProto tagStatus)
         {
             FileInfo file = GetPlanFile(tagStatus.Name);
             if (file.Exists)
@@ -76,32 +76,6 @@ namespace Nsr.Planner
         }
 
 
-        internal static string ShowNsrTagOperateList(NsrSelectedTags tags)
-        {
-            StringBuilder sb = new();
-            tags.ForEach(tag => sb.Append($"{tag.Name}({tag.Rarity}{tag.SubStribe})+"));
-            if (tags.Count > 0) sb.Remove(sb.Length - 1, 1);
-            if (tags.Count > 1) sb.Append($"={tags.BaseSubstribe}");
-            if (tags.Multiple > 1)
-            {
-                sb.AppendLine();
-                sb.Append(tags.BaseSubstribe);
-                foreach (var item in tags.TagGroupCountDict)
-                    sb.Append(GetCountItemText(item));
-                sb.Append($"={tags.Substribe}");
-            }
-            return sb.ToString();
-        }
-
-        static string GetCountItemText(KeyValuePair<NsrComponentCategory, int> item) => item.Value switch
-        {
-            5 => $"*极致{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
-            4 => $"*特级{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
-            3 => $"*超级{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
-            2 => $"*{item.Key}({NsrSelectedTags.CountMultiple[item.Value]})",
-            1 => string.Empty,
-            _ => throw new KeyNotFoundException(),
-        };
         FileInfo GetPlanFile(string formName) => new(Path.Combine(new FileInfo(JsonPath).DirectoryName, $"{formName}_{nameof(NsrTagSetting)}List.json"));
 
         static readonly JsonSerializerSettings serializerSettings = new()
@@ -217,30 +191,30 @@ namespace Nsr.Planner
             NsrTags tags = new();
 
             foreach (DataRow row in dataTable.Rows)
-                if (int.TryParse(row.ItemArray[9].ToString(), out _))
+                if (int.TryParse(row.ItemArray[10].ToString(), out _))
                 {
                     _ = int.TryParse(row.ItemArray[1].ToString(), out int rarityId);
                     _ = bool.TryParse(row.ItemArray[3].ToString(), out bool isSensitive);
-                    _ = int.TryParse(row.ItemArray[8].ToString(), out int repeatTime);
+                    _ = int.TryParse(row.ItemArray[9].ToString(), out int repeatTime);
                     NsrTagRarity rarity = (NsrTagRarity)rarityId;
                     NsrTag tag = new()
                     {
                         Name = row.ItemArray[0].ToString(),
                         Rarity = rarity,
                         SubStribe = rarity.SubStribe(),
-                        Description = row.ItemArray[7].ToString(),
+                        Description = row.ItemArray[8].ToString(),
                         RepeatTime = repeatTime,
                         IsSensitive = isSensitive,
                     };
                     tag.Exclusions.Add(new NsrRepeatExclusion(tag.Name, tag.RepeatTime));
-                    tag.Exclusions.AddRange(descExclusions.Where(ex => ex.Match(row.ItemArray[7].ToString())));
-                    string exclusionNames = row.ItemArray[24].ToString();
+                    tag.Exclusions.AddRange(descExclusions.Where(ex => ex.Match(tag.Description)));
+                    string exclusionNames = row.ItemArray[25].ToString();
                     if (!string.IsNullOrEmpty(exclusionNames))
                         tag.Exclusions.Add(new NsrTagExclusion(exclusionNames));
-                    const int offset = 10;
+                    const int offset = 11;
                     for (int i = offset; i <= offset + 12; i++)
                         if (int.TryParse(row.ItemArray[i].ToString(), out int value) && value == 2)
-                            tag.Groups.Add((NsrComponentCategory)(i - offset));
+                            tag.Groups.Add((NsrTagCategory)(i - offset));
                     tags.Add(tag);
                 }
             FillTagExclusions(tags);

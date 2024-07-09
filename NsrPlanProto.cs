@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace Nsr.Planner
 {
-    public partial class NsrTagStatus : Form, INsrOperateUI
+    public partial class NsrPlanProto : Form, INsrOperateUI
     {
         #region INsrOperationUI接口
         public bool Cancel { get; private set; }
@@ -26,7 +26,11 @@ namespace Nsr.Planner
         {
             label = $"{o}";
             Text = $"{FormName} - {o}";
-            resultPanel.AppendText($"{o}\r\n");
+            try
+            {
+                resultPanel.AppendText($"{o}\r\n");
+            }
+            catch (ObjectDisposedException) { }
         }
 
         public void Init(int max) => (progress.Value, progress.Maximum) = (0, max);
@@ -115,8 +119,9 @@ namespace Nsr.Planner
         private readonly ToolTip[] SelectionTips = new ToolTip[5];
         private readonly List<ToolStripMenuItem> modelMenuItems = new();
         public List<NsrComponent> AllComponents { get; private init; }
+        static int KeypressTime { get; set; }
 
-        internal NsrTagStatus(string name, NsrData nsrData)
+        internal NsrPlanProto(string name, NsrData nsrData)
         {
             (FormName, AllTags, AllComponents) = (name, nsrData.NsrTags, nsrData.NsrComponents);
             InitializeComponent();
@@ -272,13 +277,12 @@ namespace Nsr.Planner
                 UpdateTagUsageTime(button, 1);
         }
 
-        static int keypressTime = 0;
         private void TagList_KeyPress(object sender, KeyPressEventArgs e)
         {
-            keypressTime++;
-            if (keypressTime > 1)
+            KeypressTime++;
+            if (KeypressTime > 1)
             {
-                keypressTime = 0;
+                KeypressTime = 0;
                 return;
             }
             int inc = e.KeyChar switch
@@ -347,21 +351,18 @@ namespace Nsr.Planner
             foreach (ComboBox selection in selections)
                 if (AllTags.Any(tag => tag.Name == selection.Text))
                     tags.Add(AllTags.First(tag => tag.Name == selection.Text));
-            value.Text = NsrDataAdapter.ShowNsrTagOperateList(new NsrSelectedTags(tags));
+            value.Text = new NsrSelectedTags(tags).ShowNsrTagOperateList();
         }
 
         private void Selection_TooltipRefreshed(object sender, EventArgs e)
         {
             if (sender is ComboBox combo)
-            {
                 if (selections.Contains(combo))
                 {
                     int index = Array.IndexOf(selections, combo);
                     SelectionTips[index].RemoveAll();
                     SelectionTips[index].SetToolTip(combo, AllTags.FirstOrDefault(t => t.Name == combo.Text)?.Description);
                 }
-
-            }
         }
         private void PaintIcon(Button button, int iconId) => button.Image = icons.Images[iconId];
 
@@ -401,11 +402,9 @@ namespace Nsr.Planner
                 if (item.Tag is NsrTag tag)
                 {
                     if (tag.Exclusions.Any(ex => ex is NsrDescMutualExclusion))
-                    {
                         foreach (var menu in modelMenuItems)
                             if (tag.Exclusions.Contains((NsrDescMutualExclusion)menu.Tag))
                                 item.Checked = menu.Checked && (!tag.IsSensitive || allowSensitive.Checked);
-                    }
                     else
                         item.Checked = !tag.IsSensitive || allowSensitive.Checked;
                 }
@@ -493,12 +492,12 @@ namespace Nsr.Planner
             operationCommandPanel.Enabled = !isLock;
             selectionTablePanel.Enabled = !isLock;
             tagList.CheckBoxes = !isLock;
-            if (!isLock)
-                Text = FormName;
+            if (!isLock) Text = FormName;
         }
 
         private void PlannerWindow_FormClosing(object sender, FormClosingEventArgs e)
         {
+            Cancel = true;
             Program.NsrDataAdapter.SevePlan(this);
         }
     }

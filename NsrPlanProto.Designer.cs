@@ -1,7 +1,7 @@
 ﻿
 namespace Nsr.Planner
 {
-    partial class NsrTagStatus
+    partial class NsrPlanProto
     {
         /// <summary>
         ///  Required designer variable.
@@ -30,7 +30,7 @@ namespace Nsr.Planner
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(NsrTagStatus));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(NsrPlanProto));
             splitContainer1 = new System.Windows.Forms.SplitContainer();
             value = new System.Windows.Forms.TextBox();
             colorLimit = new System.Windows.Forms.CheckedListBox();

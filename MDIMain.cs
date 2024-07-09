@@ -22,7 +22,7 @@ namespace Nsr.Planner
 
         private void ShowNewForm()
         {
-            NsrTagStatus newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
+            NsrPlanProto newWindow = new($"规划{++childFormNumber}", nsrData) { MdiParent = this };
             Program.NsrDataAdapter.LoadPlan(newWindow);
             newWindow.Show();
         }
@@ -42,6 +42,11 @@ namespace Nsr.Planner
         private void ArrangeIconsToolStripMenuItem_Click(object sender, EventArgs e) => LayoutMdi(MdiLayout.ArrangeIcons);
 
         private void CloseAllToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CloseAllChirdren();
+        }
+
+        private void CloseAllChirdren()
         {
             foreach (var childForm in MdiChildren)
                 childForm.Close();
@@ -74,7 +79,8 @@ namespace Nsr.Planner
         }
 
         private void MDIMain_FormClosing(object sender, FormClosingEventArgs e)
-        {
+        { 
+            CloseAllChirdren();
             Application.Exit();
         }
     }
